@@ -74,12 +74,25 @@ jobs:
           cp index.html catalog.json data.json _site/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
+      - name: Wait for the website package to be ready
+        run: sleep 20
       - name: Publish Pages
-        id: deployment
+        id: first_try
+        continue-on-error: true
         uses: actions/deploy-pages@v4
+      - name: Try publishing again if the first try failed
+        if: steps.first_try.outcome == 'failure'
+        run: sleep 60
+      - name: Publish Pages (second try)
+        id: second_try
+        if: steps.first_try.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+      - name: Website link
+        id: deployment
+        run: echo "page_url=${{ steps.first_try.outputs.page_url || steps.second_try.outputs.page_url }}" >> "$GITHUB_OUTPUT"
       - name: Report part numbers the dealer did not confirm
         if: needs.check.outputs.not_renewed != '' && needs.check.outputs.not_renewed != '0'
         run: |
